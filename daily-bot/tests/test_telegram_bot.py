@@ -4,9 +4,11 @@ from telegram.error import InvalidToken, NetworkError
 
 from bot.telegram_bot import (
     send_message,
+    send_to_channel,
     TelegramAuthError,
     TelegramSendError,
     _split_message,
+    _get_channel_id,
     TELEGRAM_MAX_LENGTH,
 )
 
@@ -98,6 +100,74 @@ class TestSendMessage:
         long_text = "Uzun satır\n" * 500
 
         result = await send_message(long_text)
+
+        assert result is True
+        assert mock_bot.send_message.call_count >= 2
+
+
+# ---------------------------------------------------------------------------
+# _get_channel_id
+# ---------------------------------------------------------------------------
+
+MOCK_CHANNEL_ID = "@test_channel"
+
+
+class TestGetChannelId:
+    @patch.dict("os.environ", {"TELEGRAM_CHANNEL_ID": MOCK_CHANNEL_ID})
+    def test_returns_channel_id(self):
+        result = _get_channel_id()
+        assert result == MOCK_CHANNEL_ID
+
+    @patch.dict("os.environ", {"TELEGRAM_CHANNEL_ID": ""})
+    def test_raises_on_empty_channel_id(self):
+        with pytest.raises(TelegramSendError):
+            _get_channel_id()
+
+
+# ---------------------------------------------------------------------------
+# send_to_channel
+# ---------------------------------------------------------------------------
+
+
+class TestSendToChannel:
+    @pytest.mark.asyncio
+    @patch("bot.telegram_bot._get_channel_id", return_value=MOCK_CHANNEL_ID)
+    async def test_successful_send_returns_true(self, mock_channel):
+        mock_bot = AsyncMock()
+
+        result = await send_to_channel(mock_bot, "Kanal mesajı")
+
+        assert result is True
+        mock_bot.send_message.assert_called_once()
+        call_kwargs = mock_bot.send_message.call_args[1]
+        assert call_kwargs["chat_id"] == MOCK_CHANNEL_ID
+        assert call_kwargs["parse_mode"] == "MarkdownV2"
+
+    @pytest.mark.asyncio
+    @patch("bot.telegram_bot._get_channel_id", return_value=MOCK_CHANNEL_ID)
+    async def test_raises_auth_error_on_invalid_token(self, mock_channel):
+        mock_bot = AsyncMock()
+        mock_bot.send_message.side_effect = InvalidToken("Invalid token")
+
+        with pytest.raises(TelegramAuthError):
+            await send_to_channel(mock_bot, "Test")
+
+    @pytest.mark.asyncio
+    @patch("bot.telegram_bot._get_channel_id", return_value=MOCK_CHANNEL_ID)
+    async def test_raises_send_error_on_network_failure(self, mock_channel):
+        mock_bot = AsyncMock()
+        mock_bot.send_message.side_effect = NetworkError("Connection failed")
+
+        with pytest.raises(TelegramSendError):
+            await send_to_channel(mock_bot, "Test")
+
+    @pytest.mark.asyncio
+    @patch("bot.telegram_bot._get_channel_id", return_value=MOCK_CHANNEL_ID)
+    async def test_long_message_splits(self, mock_channel):
+        mock_bot = AsyncMock()
+        long_text = "Uzun satır\n" * 500
+
+        result = await send_to_channel(mock_bot, long_text)
 
         assert result is True
         assert mock_bot.send_message.call_count >= 2

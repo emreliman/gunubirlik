@@ -1,10 +1,11 @@
 """Zamanlı görev tanımları.
 
-APScheduler tarafından tetiklenen günlük özet gönderme görevi.
+APScheduler / JobQueue tarafından tetiklenen günlük özet gönderme görevi.
 """
 
-import asyncio
 import logging
+
+from telegram import Bot
 
 from constants import (
     GOLD_TICKER,
@@ -24,7 +25,7 @@ from data.finance import (
 from data.crypto import get_crypto_prices
 from data.news import get_news
 from bot.formatter import format_message
-from bot.telegram_bot import send_message
+from bot.telegram_bot import send_to_channel
 
 logger = logging.getLogger(__name__)
 
@@ -117,15 +118,18 @@ def _collect_news_data() -> list[dict]:
         return []
 
 
-def run_daily_summary() -> None:
-    """Günlük özet mesajını oluşturup Telegram'a gönderir.
+async def run_daily_summary(bot: Bot) -> None:
+    """Günlük özet mesajını oluşturup Telegram kanalına gönderir.
+
+    Args:
+        bot: Telegram Bot instance'ı.
 
     Adımlar:
         1. Finans verisi çek
         2. Kripto verisi çek
         3. Haber verisi çek
         4. Mesajı formatla
-        5. Telegram'a gönder
+        5. Kanala gönder
 
     Herhangi bir veri kaynağı hata verirse diğerlerine devam eder.
     Tüm kaynaklar başarısız olursa mesaj gönderilmez.
@@ -137,23 +141,29 @@ def run_daily_summary() -> None:
     news_data = _collect_news_data()
 
     if finance_data is None and crypto_data is None and not news_data:
-        logger.error("Hiçbir veri kaynağından veri alınamadı, mesaj gönderilmiyor")
+        logger.error(
+            "Hiçbir veri kaynağından veri alınamadı, mesaj gönderilmiyor"
+        )
         return
 
-    effective_finance = finance_data if finance_data is not None else _DEFAULT_FINANCE_DATA
+    effective_finance = (
+        finance_data if finance_data is not None else _DEFAULT_FINANCE_DATA
+    )
     effective_crypto = crypto_data if crypto_data is not None else {}
 
     try:
-        message = format_message(effective_finance, effective_crypto, news_data)
+        message = format_message(
+            effective_finance, effective_crypto, news_data
+        )
         logger.info("Mesaj formatlandı (%d karakter)", len(message))
     except Exception as exc:
         logger.error("Mesaj formatlanamadı: %s", exc)
         return
 
     try:
-        asyncio.run(send_message(message))
-        logger.info("Günlük özet Telegram'a gönderildi")
+        await send_to_channel(bot, message)
+        logger.info("Günlük özet kanala gönderildi")
     except Exception as exc:
-        logger.error("Mesaj Telegram'a gönderilemedi: %s", exc)
+        logger.error("Mesaj kanala gönderilemedi: %s", exc)
 
     logger.info("Günlük özet görevi tamamlandı")

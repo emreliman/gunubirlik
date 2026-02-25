@@ -1,21 +1,35 @@
 """Telegram haber botu ana giriş noktası.
 
-APScheduler ile her gün 09:00 Europe/Istanbul'da günlük özet gönderir.
+Komut tabanlı etkileşim ve günlük zamanlanmış kanal özeti.
 Manuel tetikleme: python main.py --now
 """
 
 import argparse
 import asyncio
 import logging
+import os
+from datetime import time as dt_time
+from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
+from dotenv import load_dotenv
+from telegram import Bot
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 from constants import SEND_HOUR, SEND_MINUTE
 from scheduler.jobs import run_daily_summary
-from bot.telegram_bot import send_message
+from bot.commands import (
+    ozet_command,
+    doviz_command,
+    altin_command,
+    kripto_command,
+    haber_command,
+    bist_command,
+    yardim_command,
+)
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 TIMEZONE = "Europe/Istanbul"
 
@@ -35,63 +49,92 @@ def _parse_args() -> argparse.Namespace:
     Returns:
         Parse edilmiş argümanlar.
     """
-    parser = argparse.ArgumentParser(description="Telegram Günlük Finans & Haber Botu")
+    parser = argparse.ArgumentParser(
+        description="Telegram Günlük Finans & Haber Botu"
+    )
     parser.add_argument(
         "--now",
         action="store_true",
-        help="Günlük özeti hemen gönder ve çık (scheduler başlatma)",
+        help="Günlük özeti hemen kanala gönder ve çık",
     )
     return parser.parse_args()
 
 
-def _send_startup_message() -> None:
-    """Bot başlatıldığında test mesajı gönderir."""
+async def _daily_job_callback(
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """JobQueue tarafından çağrılan günlük özet görevi.
+
+    Args:
+        context: Telegram bot context'i.
+    """
+    logger.info("Zamanlanmış günlük özet tetiklendi")
     try:
-        asyncio.run(send_message("Bot başladı ✅"))
-        logger.info("Başlangıç mesajı gönderildi")
+        await run_daily_summary(context.bot)
     except Exception as exc:
-        logger.error("Başlangıç mesajı gönderilemedi: %s", exc)
+        logger.error("Zamanlanmış görev hatası: %s", exc)
+
+
+async def _send_now() -> None:
+    """Özeti hemen kanala gönderip çıkar."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise ValueError("TELEGRAM_BOT_TOKEN ortam değişkeni tanımlı değil")
+    bot = Bot(token=token)
+    await run_daily_summary(bot)
 
 
 def main() -> None:
     """Ana giriş noktası.
 
-    --now ile çalıştırılırsa özeti anında gönderip çıkar.
-    Argümansız çalıştırılırsa scheduler modunda başlar.
+    --now ile çalıştırılırsa özeti anında kanala gönderip çıkar.
+    Argümansız çalıştırılırsa komut dinleme + scheduler modunda başlar.
     """
     _setup_logging()
     args = _parse_args()
 
     if args.now:
         logger.info("Manuel tetikleme — günlük özet gönderiliyor...")
-        run_daily_summary()
+        asyncio.run(_send_now())
         logger.info("Manuel gönderim tamamlandı")
         return
 
-    logger.info("Bot başlatılıyor...")
-    _send_startup_message()
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        logger.error("TELEGRAM_BOT_TOKEN ortam değişkeni tanımlı değil")
+        return
 
-    scheduler = BlockingScheduler()
-    scheduler.add_job(
-        run_daily_summary,
-        trigger=CronTrigger(
-            hour=SEND_HOUR,
-            minute=SEND_MINUTE,
-            timezone=TIMEZONE,
-        ),
-        id="daily_summary",
-        name="Günlük Özet",
+    logger.info("Bot başlatılıyor...")
+
+    app = Application.builder().token(token).build()
+
+    app.add_handler(CommandHandler("ozet", ozet_command))
+    app.add_handler(CommandHandler("doviz", doviz_command))
+    app.add_handler(CommandHandler("altin", altin_command))
+    app.add_handler(CommandHandler("kripto", kripto_command))
+    app.add_handler(CommandHandler("haber", haber_command))
+    app.add_handler(CommandHandler("bist", bist_command))
+    app.add_handler(CommandHandler("yardim", yardim_command))
+    app.add_handler(CommandHandler("start", yardim_command))
+    app.add_handler(CommandHandler("help", yardim_command))
+
+    tz = ZoneInfo(TIMEZONE)
+    job_time = dt_time(hour=SEND_HOUR, minute=SEND_MINUTE, tzinfo=tz)
+    app.job_queue.run_daily(
+        _daily_job_callback,
+        time=job_time,
+        name="daily_summary",
     )
 
     logger.info(
-        "Scheduler başlatıldı — her gün %02d:%02d %s",
+        "Bot başlatıldı — komutlar aktif, günlük özet %02d:%02d %s",
         SEND_HOUR,
         SEND_MINUTE,
         TIMEZONE,
     )
 
     try:
-        scheduler.start()
+        app.run_polling()
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:

@@ -206,6 +206,88 @@ def _build_news_section(news_data: list[dict]) -> str:
     return "📰 *HABERLER*\n" + "\n".join(lines)
 
 
+def _build_date_header() -> str:
+    """Tarih başlığı oluşturur (MarkdownV2 uyumlu).
+
+    Returns:
+        Escape edilmiş tarih başlığı.
+    """
+    return _escape_md(_now_istanbul().strftime("%d.%m.%Y"))
+
+
+def format_metals_only(finance_data: dict) -> str:
+    """Sadece altın/gümüş bilgisi — bağımsız mesaj.
+
+    Args:
+        finance_data: gold_try, gold_prev, silver_try, silver_prev içeren dict.
+
+    Returns:
+        MarkdownV2 formatında altın/gümüş mesajı.
+    """
+    date_str = _build_date_header()
+    section = _build_metals_section(finance_data)
+    return f"📊 *{date_str}*\n\n{section}"
+
+
+def format_forex_only(finance_data: dict) -> str:
+    """Sadece döviz bilgisi — bağımsız mesaj.
+
+    Args:
+        finance_data: usd, usd_prev, eur, eur_prev içeren dict.
+
+    Returns:
+        MarkdownV2 formatında döviz mesajı.
+    """
+    date_str = _build_date_header()
+    section = _build_forex_section(finance_data)
+    return f"📊 *{date_str}*\n\n{section}"
+
+
+def format_bist_only(finance_data: dict) -> str:
+    """Borsa bilgisi — bağımsız mesaj.
+
+    Args:
+        finance_data: bist100 ve us_markets içeren dict.
+
+    Returns:
+        MarkdownV2 formatında borsa mesajı.
+    """
+    date_str = _build_date_header()
+    sections = [_build_bist_section(finance_data)]
+    us = _build_us_markets_section(finance_data)
+    if us:
+        sections.append(us)
+    return f"📊 *{date_str}*\n\n" + "\n\n".join(sections)
+
+
+def format_crypto_only(crypto_data: dict) -> str:
+    """Kripto bilgisi — bağımsız mesaj.
+
+    Args:
+        crypto_data: coin_id -> {price_usd, price_try, change_24h} dict'i.
+
+    Returns:
+        MarkdownV2 formatında kripto mesajı.
+    """
+    date_str = _build_date_header()
+    section = _build_crypto_section(crypto_data)
+    return f"📊 *{date_str}*\n\n{section}"
+
+
+def format_news_only(news_data: list[dict]) -> str:
+    """Haberler — bağımsız mesaj.
+
+    Args:
+        news_data: Haber dict'lerinin listesi.
+
+    Returns:
+        MarkdownV2 formatında haber mesajı.
+    """
+    date_str = _build_date_header()
+    section = _build_news_section(news_data)
+    return f"📊 *{date_str}*\n\n{section}"
+
+
 def format_message(
     finance_data: dict, crypto_data: dict, news_data: list[dict]
 ) -> str:

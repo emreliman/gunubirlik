@@ -100,6 +100,23 @@ def _split_message(text: str) -> list[str]:
 # Public API
 # ---------------------------------------------------------------------------
 
+def _get_channel_id() -> str:
+    """Ortam değişkenlerinden channel ID okur.
+
+    Returns:
+        Telegram kanal ID'si.
+
+    Raises:
+        TelegramSendError: Channel ID tanımlı değilse.
+    """
+    channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
+    if not channel_id:
+        raise TelegramSendError(
+            "TELEGRAM_CHANNEL_ID ortam değişkeni tanımlı değil"
+        )
+    return channel_id
+
+
 async def send_message(text: str) -> bool:
     """Telegram'a mesaj gönderir. Uzun mesajları otomatik böler.
 
@@ -133,4 +150,42 @@ async def send_message(text: str) -> bool:
         raise TelegramSendError(f"Mesaj gönderilemedi: {exc}") from exc
 
     logger.info("Toplam %d parça başarıyla gönderildi", len(chunks))
+    return True
+
+
+async def send_to_channel(bot: Bot, text: str) -> bool:
+    """Telegram kanalına mesaj gönderir. Uzun mesajları otomatik böler.
+
+    Args:
+        bot: Telegram Bot instance'ı.
+        text: Gönderilecek mesaj metni.
+
+    Returns:
+        Başarılıysa True.
+
+    Raises:
+        TelegramAuthError: Token geçersizse.
+        TelegramSendError: Gönderim başarısızsa.
+    """
+    channel_id = _get_channel_id()
+    chunks = _split_message(text)
+
+    try:
+        for chunk in chunks:
+            await bot.send_message(
+                chat_id=channel_id,
+                text=chunk,
+                parse_mode="MarkdownV2",
+            )
+            logger.info(
+                "Kanal mesaj parçası gönderildi (%d karakter)", len(chunk)
+            )
+    except InvalidToken as exc:
+        logger.error("Telegram token geçersiz: %s", exc)
+        raise TelegramAuthError("Bot token geçersiz") from exc
+    except (NetworkError, TelegramError) as exc:
+        logger.error("Kanal gönderim hatası: %s", exc)
+        raise TelegramSendError(f"Kanala mesaj gönderilemedi: {exc}") from exc
+
+    logger.info("Toplam %d parça kanala gönderildi", len(chunks))
     return True

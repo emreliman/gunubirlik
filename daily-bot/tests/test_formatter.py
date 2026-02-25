@@ -1,7 +1,15 @@
 from unittest.mock import patch
 from datetime import datetime
 
-from bot.formatter import format_message, format_change
+from bot.formatter import (
+    format_message,
+    format_change,
+    format_metals_only,
+    format_forex_only,
+    format_bist_only,
+    format_crypto_only,
+    format_news_only,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -147,4 +155,104 @@ class TestFormatMessage:
         finance_no_us = {**FINANCE_DATA, "us_markets": {}}
         msg = format_message(finance_no_us, CRYPTO_DATA, NEWS_DATA)
         assert "ABD BORSA" not in msg
+
+
+# ---------------------------------------------------------------------------
+# Standalone section format functions
+# ---------------------------------------------------------------------------
+
+
+METALS_DATA = {
+    "gold_try": 2057.5,
+    "gold_prev": 2040.0,
+    "silver_try": 28.5,
+    "silver_prev": 28.0,
+}
+
+FOREX_DATA = {
+    "usd": 32.50,
+    "usd_prev": 32.30,
+    "eur": 35.10,
+    "eur_prev": 34.90,
+}
+
+BIST_DATA = {
+    "bist100": {"price": 9850.0, "change_pct": 0.75},
+    "us_markets": {
+        "sp500": {"price": 5987.0, "change_pct": 0.45},
+    },
+}
+
+
+class TestFormatMetalsOnly:
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_date_and_gold(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_metals_only(METALS_DATA)
+        assert "Altın" in msg
+        assert r"25\.02\.2026" in msg
+
+    @patch("bot.formatter._now_istanbul")
+    def test_returns_str(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        assert isinstance(format_metals_only(METALS_DATA), str)
+
+
+class TestFormatForexOnly:
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_usd_and_eur(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_forex_only(FOREX_DATA)
+        assert "USD" in msg
+        assert "EUR" in msg
+
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_date(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_forex_only(FOREX_DATA)
+        assert r"25\.02\.2026" in msg
+
+
+class TestFormatBistOnly:
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_bist_section(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_bist_only(BIST_DATA)
+        assert "BIST" in msg
+
+    @patch("bot.formatter._now_istanbul")
+    def test_includes_us_markets_when_present(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_bist_only(BIST_DATA)
+        assert "ABD BORSA" in msg
+
+    @patch("bot.formatter._now_istanbul")
+    def test_hides_us_markets_when_empty(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        data = {"bist100": {"price": 9850.0, "change_pct": 0.75}, "us_markets": {}}
+        msg = format_bist_only(data)
+        assert "ABD BORSA" not in msg
+
+
+class TestFormatCryptoOnly:
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_crypto_data(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_crypto_only(CRYPTO_DATA)
+        assert "BTC" in msg
+        assert "ETH" in msg
+
+
+class TestFormatNewsOnly:
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_news_titles(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_news_only(NEWS_DATA)
+        assert "Haber 1" in msg
+
+    @patch("bot.formatter._now_istanbul")
+    def test_handles_empty_news(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        msg = format_news_only([])
+        assert "Haber bulunamadı" in msg
 

@@ -1,9 +1,9 @@
 yfinance
 feedparser
 requests
-python-telegram-bot
-apscheduler
+python-telegram-bot[job-queue]
 python-dotenv
+tzdata
 pytest
 pytest-mock
 pytest-asyncio

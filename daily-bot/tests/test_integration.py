@@ -4,7 +4,8 @@ run_daily_summary fonksiyonunun baştan sona çalışmasını test eder.
 Tüm dış bağımlılıklar (yfinance, CoinGecko, feedparser, Telegram) mock'lanır.
 """
 
-from unittest.mock import AsyncMock, patch
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from constants import (
     GOLD_TICKER,
@@ -27,8 +28,18 @@ MOCK_US_MARKETS = {
 }
 
 MOCK_NEWS = [
-    {"title": "Ekonomi haberi", "source": "Hürriyet", "link": "https://example.com/1", "published": ""},
-    {"title": "Borsa rallisi", "source": "Bloomberg HT", "link": "https://example.com/2", "published": ""},
+    {
+        "title": "Ekonomi haberi",
+        "source": "Hürriyet",
+        "link": "https://example.com/1",
+        "published": "",
+    },
+    {
+        "title": "Borsa rallisi",
+        "source": "Bloomberg HT",
+        "link": "https://example.com/2",
+        "published": "",
+    },
 ]
 
 PREV_CLOSE_MAP = {
@@ -42,16 +53,30 @@ PREV_CLOSE_MAP = {
 class TestRunDailySummaryIntegration:
     """run_daily_summary end-to-end entegrasyon testleri."""
 
-    @patch("scheduler.jobs.send_message", new_callable=AsyncMock, return_value=True)
+    @pytest.mark.asyncio
+    @patch(
+        "scheduler.jobs.send_to_channel",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
     @patch("scheduler.jobs.get_news", return_value=MOCK_NEWS)
     @patch("scheduler.jobs.get_crypto_prices", return_value=MOCK_CRYPTO)
     @patch("scheduler.jobs.get_us_markets", return_value=MOCK_US_MARKETS)
-    @patch("scheduler.jobs.get_previous_close", side_effect=lambda t: PREV_CLOSE_MAP[t])
-    @patch("scheduler.jobs.get_bist100", return_value={"price": 9850.0, "change_pct": 0.75})
-    @patch("scheduler.jobs.get_exchange_rates", return_value={"USD": 32.50, "EUR": 35.10})
+    @patch(
+        "scheduler.jobs.get_previous_close",
+        side_effect=lambda t: PREV_CLOSE_MAP[t],
+    )
+    @patch(
+        "scheduler.jobs.get_bist100",
+        return_value={"price": 9850.0, "change_pct": 0.75},
+    )
+    @patch(
+        "scheduler.jobs.get_exchange_rates",
+        return_value={"USD": 32.50, "EUR": 35.10},
+    )
     @patch("scheduler.jobs.get_silver_price_try", return_value=28.5)
     @patch("scheduler.jobs.get_gold_price_try", return_value=2057.5)
-    def test_end_to_end_success(
+    async def test_end_to_end_success(
         self,
         mock_gold,
         mock_silver,
@@ -63,8 +88,10 @@ class TestRunDailySummaryIntegration:
         mock_news,
         mock_send,
     ):
-        """Tüm adımlar başarılı olduğunda mesaj formatlanıp gönderilmeli."""
-        run_daily_summary()
+        """Tüm adımlar başarılı olduğunda mesaj formatlanıp kanala gönderilmeli."""
+        mock_bot = AsyncMock()
+
+        await run_daily_summary(mock_bot)
 
         mock_gold.assert_called_once()
         mock_silver.assert_called_once()
@@ -76,21 +103,38 @@ class TestRunDailySummaryIntegration:
         mock_news.assert_called_once()
         mock_send.assert_called_once()
 
-        sent_text = mock_send.call_args[0][0]
+        sent_text = mock_send.call_args[0][1]
         assert "Altın" in sent_text
         assert "BTC" in sent_text
         assert "S&P 500" in sent_text
         assert "Ekonomi haberi" in sent_text
 
-    @patch("scheduler.jobs.send_message", new_callable=AsyncMock, return_value=True)
+    @pytest.mark.asyncio
+    @patch(
+        "scheduler.jobs.send_to_channel",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
     @patch("scheduler.jobs.get_news", return_value=MOCK_NEWS)
     @patch("scheduler.jobs.get_crypto_prices", return_value=MOCK_CRYPTO)
-    @patch("scheduler.jobs.get_previous_close", side_effect=Exception("API down"))
+    @patch(
+        "scheduler.jobs.get_previous_close",
+        side_effect=Exception("API down"),
+    )
     @patch("scheduler.jobs.get_bist100", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_exchange_rates", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_silver_price_try", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_gold_price_try", side_effect=Exception("API down"))
-    def test_finance_fails_but_crypto_and_news_still_sent(
+    @patch(
+        "scheduler.jobs.get_exchange_rates",
+        side_effect=Exception("API down"),
+    )
+    @patch(
+        "scheduler.jobs.get_silver_price_try",
+        side_effect=Exception("API down"),
+    )
+    @patch(
+        "scheduler.jobs.get_gold_price_try",
+        side_effect=Exception("API down"),
+    )
+    async def test_finance_fails_but_crypto_and_news_still_sent(
         self,
         mock_gold,
         mock_silver,
@@ -102,22 +146,44 @@ class TestRunDailySummaryIntegration:
         mock_send,
     ):
         """Finans verisi başarısız olsa da kripto ve haberlerle mesaj gönderilmeli."""
-        run_daily_summary()
+        mock_bot = AsyncMock()
+
+        await run_daily_summary(mock_bot)
 
         mock_send.assert_called_once()
-        sent_text = mock_send.call_args[0][0]
+        sent_text = mock_send.call_args[0][1]
         assert "BTC" in sent_text
         assert "Ekonomi haberi" in sent_text
 
-    @patch("scheduler.jobs.send_message", new_callable=AsyncMock, return_value=True)
+    @pytest.mark.asyncio
+    @patch(
+        "scheduler.jobs.send_to_channel",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
     @patch("scheduler.jobs.get_news", return_value=[])
-    @patch("scheduler.jobs.get_crypto_prices", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_previous_close", side_effect=Exception("API down"))
+    @patch(
+        "scheduler.jobs.get_crypto_prices",
+        side_effect=Exception("API down"),
+    )
+    @patch(
+        "scheduler.jobs.get_previous_close",
+        side_effect=Exception("API down"),
+    )
     @patch("scheduler.jobs.get_bist100", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_exchange_rates", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_silver_price_try", side_effect=Exception("API down"))
-    @patch("scheduler.jobs.get_gold_price_try", side_effect=Exception("API down"))
-    def test_all_sources_fail_no_message_sent(
+    @patch(
+        "scheduler.jobs.get_exchange_rates",
+        side_effect=Exception("API down"),
+    )
+    @patch(
+        "scheduler.jobs.get_silver_price_try",
+        side_effect=Exception("API down"),
+    )
+    @patch(
+        "scheduler.jobs.get_gold_price_try",
+        side_effect=Exception("API down"),
+    )
+    async def test_all_sources_fail_no_message_sent(
         self,
         mock_gold,
         mock_silver,
@@ -129,20 +195,36 @@ class TestRunDailySummaryIntegration:
         mock_send,
     ):
         """Tüm veri kaynakları başarısız olursa mesaj gönderilmemeli."""
-        run_daily_summary()
+        mock_bot = AsyncMock()
+
+        await run_daily_summary(mock_bot)
 
         mock_send.assert_not_called()
 
-    @patch("scheduler.jobs.send_message", new_callable=AsyncMock, side_effect=Exception("Telegram error"))
+    @pytest.mark.asyncio
+    @patch(
+        "scheduler.jobs.send_to_channel",
+        new_callable=AsyncMock,
+        side_effect=Exception("Telegram error"),
+    )
     @patch("scheduler.jobs.get_news", return_value=MOCK_NEWS)
     @patch("scheduler.jobs.get_crypto_prices", return_value=MOCK_CRYPTO)
     @patch("scheduler.jobs.get_us_markets", return_value=MOCK_US_MARKETS)
-    @patch("scheduler.jobs.get_previous_close", side_effect=lambda t: PREV_CLOSE_MAP[t])
-    @patch("scheduler.jobs.get_bist100", return_value={"price": 9850.0, "change_pct": 0.75})
-    @patch("scheduler.jobs.get_exchange_rates", return_value={"USD": 32.50, "EUR": 35.10})
+    @patch(
+        "scheduler.jobs.get_previous_close",
+        side_effect=lambda t: PREV_CLOSE_MAP[t],
+    )
+    @patch(
+        "scheduler.jobs.get_bist100",
+        return_value={"price": 9850.0, "change_pct": 0.75},
+    )
+    @patch(
+        "scheduler.jobs.get_exchange_rates",
+        return_value={"USD": 32.50, "EUR": 35.10},
+    )
     @patch("scheduler.jobs.get_silver_price_try", return_value=28.5)
     @patch("scheduler.jobs.get_gold_price_try", return_value=2057.5)
-    def test_telegram_send_fails_does_not_crash(
+    async def test_telegram_send_fails_does_not_crash(
         self,
         mock_gold,
         mock_silver,
@@ -155,20 +237,39 @@ class TestRunDailySummaryIntegration:
         mock_send,
     ):
         """Telegram gönderimi başarısız olsa da program crash etmemeli."""
-        run_daily_summary()
+        mock_bot = AsyncMock()
+
+        await run_daily_summary(mock_bot)
 
         mock_send.assert_called_once()
 
-    @patch("scheduler.jobs.send_message", new_callable=AsyncMock, return_value=True)
+    @pytest.mark.asyncio
+    @patch(
+        "scheduler.jobs.send_to_channel",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
     @patch("scheduler.jobs.get_news", return_value=MOCK_NEWS)
-    @patch("scheduler.jobs.get_crypto_prices", side_effect=Exception("CoinGecko down"))
+    @patch(
+        "scheduler.jobs.get_crypto_prices",
+        side_effect=Exception("CoinGecko down"),
+    )
     @patch("scheduler.jobs.get_us_markets", return_value=MOCK_US_MARKETS)
-    @patch("scheduler.jobs.get_previous_close", side_effect=lambda t: PREV_CLOSE_MAP[t])
-    @patch("scheduler.jobs.get_bist100", return_value={"price": 9850.0, "change_pct": 0.75})
-    @patch("scheduler.jobs.get_exchange_rates", return_value={"USD": 32.50, "EUR": 35.10})
+    @patch(
+        "scheduler.jobs.get_previous_close",
+        side_effect=lambda t: PREV_CLOSE_MAP[t],
+    )
+    @patch(
+        "scheduler.jobs.get_bist100",
+        return_value={"price": 9850.0, "change_pct": 0.75},
+    )
+    @patch(
+        "scheduler.jobs.get_exchange_rates",
+        return_value={"USD": 32.50, "EUR": 35.10},
+    )
     @patch("scheduler.jobs.get_silver_price_try", return_value=28.5)
     @patch("scheduler.jobs.get_gold_price_try", return_value=2057.5)
-    def test_crypto_fails_finance_and_news_still_sent(
+    async def test_crypto_fails_finance_and_news_still_sent(
         self,
         mock_gold,
         mock_silver,
@@ -181,24 +282,43 @@ class TestRunDailySummaryIntegration:
         mock_send,
     ):
         """Kripto başarısız olsa da finans ve haberlerle mesaj gönderilmeli."""
-        run_daily_summary()
+        mock_bot = AsyncMock()
+
+        await run_daily_summary(mock_bot)
 
         mock_send.assert_called_once()
-        sent_text = mock_send.call_args[0][0]
+        sent_text = mock_send.call_args[0][1]
         assert "Altın" in sent_text
         assert "Ekonomi haberi" in sent_text
 
-    @patch("scheduler.jobs.send_message", new_callable=AsyncMock, return_value=True)
-    @patch("scheduler.jobs.format_message", side_effect=Exception("Format error"))
+    @pytest.mark.asyncio
+    @patch(
+        "scheduler.jobs.send_to_channel",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+    @patch(
+        "scheduler.jobs.format_message",
+        side_effect=Exception("Format error"),
+    )
     @patch("scheduler.jobs.get_news", return_value=MOCK_NEWS)
     @patch("scheduler.jobs.get_crypto_prices", return_value=MOCK_CRYPTO)
     @patch("scheduler.jobs.get_us_markets", return_value=MOCK_US_MARKETS)
-    @patch("scheduler.jobs.get_previous_close", side_effect=lambda t: PREV_CLOSE_MAP[t])
-    @patch("scheduler.jobs.get_bist100", return_value={"price": 9850.0, "change_pct": 0.75})
-    @patch("scheduler.jobs.get_exchange_rates", return_value={"USD": 32.50, "EUR": 35.10})
+    @patch(
+        "scheduler.jobs.get_previous_close",
+        side_effect=lambda t: PREV_CLOSE_MAP[t],
+    )
+    @patch(
+        "scheduler.jobs.get_bist100",
+        return_value={"price": 9850.0, "change_pct": 0.75},
+    )
+    @patch(
+        "scheduler.jobs.get_exchange_rates",
+        return_value={"USD": 32.50, "EUR": 35.10},
+    )
     @patch("scheduler.jobs.get_silver_price_try", return_value=28.5)
     @patch("scheduler.jobs.get_gold_price_try", return_value=2057.5)
-    def test_format_fails_does_not_crash(
+    async def test_format_fails_does_not_crash(
         self,
         mock_gold,
         mock_silver,
@@ -212,6 +332,8 @@ class TestRunDailySummaryIntegration:
         mock_send,
     ):
         """Mesaj formatlama başarısız olursa program crash etmemeli."""
-        run_daily_summary()
+        mock_bot = AsyncMock()
+
+        await run_daily_summary(mock_bot)
 
         mock_send.assert_not_called()
