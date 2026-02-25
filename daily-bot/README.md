@@ -126,6 +126,125 @@ python -m pytest tests/test_integration.py -v
 python -m pytest tests/test_commands.py -v
 ```
 
+## Deploy (DigitalOcean)
+
+Botu 7/24 çalıştırmak için DigitalOcean Droplet kullanılır. GitHub Student Developer Pack ile **$200 ücretsiz kredi** alınabilir.
+
+### 1. Droplet Oluşturma
+
+1. [DigitalOcean](https://www.digitalocean.com) panelinde **Create** > **Droplets**
+2. **Region:** Amsterdam veya Frankfurt
+3. **Image:** Ubuntu 24.04 LTS
+4. **Size:** Basic > Regular > **$4/ay** (512 MB RAM, 1 vCPU)
+5. **Authentication:** SSH Key
+6. **Create Droplet** → IP adresini not al
+
+### 2. Sunucu Kurulumu
+
+```bash
+ssh root@DROPLET_IP
+
+# Sistem güncelle
+apt update && apt upgrade -y
+apt install -y python3 python3-pip python3-venv git
+
+# Bot kullanıcısı oluştur
+adduser --disabled-password --gecos "" botuser
+su - botuser
+
+# Projeyi kur
+mkdir ~/app && cd ~/app
+git clone <repo-url> .
+cd daily-bot
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Ortam Değişkenleri
+
+```bash
+nano ~/app/daily-bot/.env
+```
+
+`.env.example` dosyasındaki değişkenleri kendi değerlerinizle doldurun.
+
+### 4. Test
+
+```bash
+cd ~/app/daily-bot
+source venv/bin/activate
+python -m pytest tests/ -v
+python main.py --now
+```
+
+### 5. systemd Servisi (7/24 Çalışma)
+
+`root` kullanıcı ile:
+
+```bash
+nano /etc/systemd/system/telegram-bot.service
+```
+
+İçerik:
+
+```ini
+[Unit]
+Description=Telegram Daily Finance Bot
+After=network.target
+
+[Service]
+Type=simple
+User=botuser
+WorkingDirectory=/home/botuser/app/daily-bot
+ExecStart=/home/botuser/app/daily-bot/venv/bin/python main.py
+Restart=always
+RestartSec=10
+EnvironmentFile=/home/botuser/app/daily-bot/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable telegram-bot
+systemctl start telegram-bot
+```
+
+### 6. Yönetim Komutları
+
+| İşlem | Komut |
+|---|---|
+| Sunucuya bağlan | `ssh root@DROPLET_IP` |
+| Bot durumu | `systemctl status telegram-bot` |
+| Botu yeniden başlat | `systemctl restart telegram-bot` |
+| Botu durdur | `systemctl stop telegram-bot` |
+| Canlı log izle | `journalctl -u telegram-bot -f` |
+| Son 50 log satırı | `journalctl -u telegram-bot -n 50` |
+
+### 7. Kod Güncelleme
+
+```bash
+ssh root@DROPLET_IP
+cd /home/botuser/app
+su - botuser
+cd ~/app
+git pull
+cd daily-bot
+source venv/bin/activate
+pip install -r requirements.txt
+exit
+systemctl restart telegram-bot
+```
+
+Alternatif olarak dosyaları `scp` ile kopyalayabilirsiniz:
+
+```powershell
+scp -r .\daily-bot\* root@DROPLET_IP:/home/botuser/app/daily-bot/
+ssh root@DROPLET_IP "systemctl restart telegram-bot"
+```
+
 ## Proje Yapısı
 
 ```
