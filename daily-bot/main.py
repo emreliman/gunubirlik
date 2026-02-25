@@ -25,6 +25,7 @@ from bot.commands import (
     haber_command,
     bist_command,
     yardim_command,
+    dm_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ def main() -> None:
     app.add_handler(CommandHandler("kripto", kripto_command))
     app.add_handler(CommandHandler("haber", haber_command))
     app.add_handler(CommandHandler("bist", bist_command))
+    app.add_handler(CommandHandler("dm", dm_command))
     app.add_handler(CommandHandler("yardim", yardim_command))
     app.add_handler(CommandHandler("start", yardim_command))
     app.add_handler(CommandHandler("help", yardim_command))
