@@ -25,6 +25,7 @@ COINGECKO_MARKET_CHART_URL = (
 )
 REQUEST_TIMEOUT_SECONDS = 10
 MIN_PRICE_POINTS = 2
+GOLD_HISTORY_BUFFER_DAYS = 14
 CHART_FIGURE_WIDTH = 9
 CHART_FIGURE_HEIGHT = 4
 CHART_LINE_WIDTH = 2
@@ -117,7 +118,7 @@ def _fetch_gold_prices_try(days: int) -> list[tuple[str, float]]:
     Raises:
         ValueError: Veri alinamazsa veya yetersizse.
     """
-    history_period = f"{days + MIN_PRICE_POINTS}d"
+    history_period = f"{days + GOLD_HISTORY_BUFFER_DAYS}d"
     gold_history = yf.Ticker(GOLD_TICKER).history(period=history_period, interval="1d")
     usdtry_history = yf.Ticker(USDTRY_TICKER).history(
         period=history_period, interval="1d"
@@ -128,8 +129,9 @@ def _fetch_gold_prices_try(days: int) -> list[tuple[str, float]]:
 
     merged = gold_history[["Close"]].rename(columns={"Close": "gold_close"}).join(
         usdtry_history[["Close"]].rename(columns={"Close": "usdtry_close"}),
-        how="inner",
+        how="outer",
     )
+    merged = merged.sort_index().ffill()
     merged = merged.dropna()
     if len(merged) < MIN_PRICE_POINTS:
         raise ValueError("Altin icin yeterli grafik verisi bulunamadi")
