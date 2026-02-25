@@ -97,6 +97,8 @@ Sadece `ADMIN_USER_IDS`'deki kullanıcılar bota **özel mesaj** (DM) gönderere
 | `/kripto` | BTC, ETH fiyatları | Kanala |
 | `/haber` | Son haberler | Kanala |
 | `/bist` | BIST-100 + ABD borsaları | Kanala |
+| `/grafik <btc\|altin> <1h\|1a>` | 1 hafta/1 ay grafik görseli | Kanala |
+| `/dm grafik <btc\|altin> <1h\|1a>` | 1 hafta/1 ay grafik görseli | Admin'e (DM) |
 | `/yardim` | Komut listesi | Admin'e (DM) |
 | `/start` | Komut listesi | Admin'e (DM) |
 

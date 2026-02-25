@@ -20,3 +20,28 @@ RSS_FEEDS = {
 SEND_HOUR = 9
 SEND_MINUTE = 0
 NEWS_LIMIT_PER_SOURCE = 2
+
+CHART_PERIOD_DAYS = {
+    "1h": 7,
+    "1hafta": 7,
+    "1w": 7,
+    "1a": 30,
+    "1ay": 30,
+    "1m": 30,
+}
+
+CHART_PERIOD_LABELS = {
+    "1h": "1 Hafta",
+    "1hafta": "1 Hafta",
+    "1w": "1 Hafta",
+    "1a": "1 Ay",
+    "1ay": "1 Ay",
+    "1m": "1 Ay",
+}
+
+CHART_ASSET_ALIASES = {
+    "btc": "btc",
+    "bitcoin": "btc",
+    "altin": "altin",
+    "gold": "altin",
+}

@@ -24,6 +24,7 @@ from bot.commands import (
     kripto_command,
     haber_command,
     bist_command,
+    grafik_command,
     yardim_command,
     dm_command,
 )
@@ -115,6 +116,7 @@ def main() -> None:
     app.add_handler(CommandHandler("kripto", kripto_command))
     app.add_handler(CommandHandler("haber", haber_command))
     app.add_handler(CommandHandler("bist", bist_command))
+    app.add_handler(CommandHandler("grafik", grafik_command))
     app.add_handler(CommandHandler("dm", dm_command))
     app.add_handler(CommandHandler("yardim", yardim_command))
     app.add_handler(CommandHandler("start", yardim_command))

@@ -6,6 +6,7 @@ DM komutu (/dm doviz, /dm altin vb.) sonucu admin'e özel gönderir.
 """
 
 import logging
+from io import BytesIO
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -20,6 +21,8 @@ from bot.formatter import (
     format_news_only,
 )
 from bot.telegram_bot import send_to_channel
+from bot.telegram_bot import send_photo_to_channel
+from data.charts import generate_asset_chart_png
 from data.finance import (
     get_gold_price_try,
     get_silver_price_try,
@@ -50,6 +53,7 @@ YARDIM_METNI = (
     "/kripto — Kripto paralar\n"
     "/haber — Son haberler\n"
     "/bist — Borsa (BIST-100 + ABD)\n\n"
+    "/grafik <btc|altin> <1h|1a> — Varlık grafiği\n\n"
     "👤 Sadece bana gönder:\n"
     "/dm doviz — Döviz kurları\n"
     "/dm altin — Altın & Gümüş\n"
@@ -57,6 +61,8 @@ YARDIM_METNI = (
     "/dm haber — Son haberler\n"
     "/dm bist — Borsa\n"
     "/dm ozet — Tam günlük özet\n\n"
+    "/dm grafik btc 1h — BTC 1 haftalık grafik\n"
+    "/dm grafik altin 1a — Altın 1 aylık grafik\n\n"
     "/yardim — Bu mesaj"
 )
 
@@ -270,6 +276,39 @@ async def bist_command(
         await update.message.reply_text(f"❌ Hata oluştu: {exc}")
 
 
+@admin_only
+async def grafik_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Varlik grafiğini kanala gönderir.
+
+    Kullanım:
+        /grafik <varlik> <periyot>
+        /grafik btc 1h
+        /grafik altin 1a
+    """
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            "Kullanım: /grafik <btc|altin> <1h|1a>\n"
+            "Örnek: /grafik btc 1a"
+        )
+        return
+
+    asset = context.args[0].lower()
+    period = context.args[1].lower()
+
+    try:
+        chart_bytes, caption = generate_asset_chart_png(asset, period)
+        await send_photo_to_channel(context.bot, chart_bytes, caption)
+        await update.message.reply_text("✅ Grafik kanala gönderildi.")
+    except ValueError as exc:
+        logger.warning("Grafik komutu doğrulama hatası: %s", exc)
+        await update.message.reply_text(f"❓ {exc}")
+    except Exception as exc:
+        logger.error("Grafik komutu hatası: %s", exc)
+        await update.message.reply_text(f"❌ Hata oluştu: {exc}")
+
+
 # ---------------------------------------------------------------------------
 # DM command handler
 # ---------------------------------------------------------------------------
@@ -292,6 +331,32 @@ async def dm_command(
         return
 
     sub = context.args[0].lower()
+
+    if sub == "grafik":
+        if len(context.args) < 3:
+            await update.message.reply_text(
+                "Kullanım: /dm grafik <btc|altin> <1h|1a>\n"
+                "Örnek: /dm grafik btc 1a"
+            )
+            return
+
+        asset = context.args[1].lower()
+        period = context.args[2].lower()
+
+        try:
+            chart_bytes, caption = generate_asset_chart_png(asset, period)
+            await update.message.reply_photo(
+                photo=BytesIO(chart_bytes),
+                caption=caption,
+            )
+        except ValueError as exc:
+            logger.warning("DM grafik doğrulama hatası: %s", exc)
+            await update.message.reply_text(f"❓ {exc}")
+        except Exception as exc:
+            logger.error("DM grafik komutu hatası: %s", exc)
+            await update.message.reply_text(f"❌ Hata oluştu: {exc}")
+        return
+
     fetcher_name = _DM_FETCHER_MAP.get(sub)
 
     if fetcher_name is None:

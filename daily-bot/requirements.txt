@@ -1,6 +1,7 @@
 yfinance
 feedparser
 requests
+matplotlib
 python-telegram-bot[job-queue]
 python-dotenv
 tzdata

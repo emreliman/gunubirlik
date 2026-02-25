@@ -9,6 +9,7 @@ from bot.commands import (
     kripto_command,
     haber_command,
     bist_command,
+    grafik_command,
     yardim_command,
     ozet_command,
     dm_command,
@@ -28,6 +29,7 @@ def _make_update(user_id: int = ADMIN_ID) -> MagicMock:
     update = MagicMock()
     update.effective_user.id = user_id
     update.message.reply_text = AsyncMock()
+    update.message.reply_photo = AsyncMock()
     return update
 
 
@@ -173,6 +175,66 @@ class TestBistCommand:
         error_call = update.message.reply_text.call_args_list[-1]
         assert "❌" in error_call[0][0]
 
+
+# ---------------------------------------------------------------------------
+# /grafik
+# ---------------------------------------------------------------------------
+
+
+class TestGrafikCommand:
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    @patch(
+        "bot.commands.send_photo_to_channel",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+    @patch(
+        "bot.commands.generate_asset_chart_png",
+        return_value=(b"png-bytes", "Grafik notu"),
+    )
+    async def test_sends_chart_to_channel(self, mock_generate, mock_send):
+        update = _make_update()
+        context = _make_context()
+        context.args = ["btc", "1a"]
+
+        await grafik_command(update, context)
+
+        mock_generate.assert_called_once_with("btc", "1a")
+        mock_send.assert_called_once_with(
+            context.bot, b"png-bytes", "Grafik notu"
+        )
+        last_reply = update.message.reply_text.call_args_list[-1][0][0]
+        assert "✅" in last_reply
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    async def test_shows_usage_when_args_missing(self):
+        update = _make_update()
+        context = _make_context()
+        context.args = ["btc"]
+
+        await grafik_command(update, context)
+
+        reply = update.message.reply_text.call_args[0][0]
+        assert "Kullanım" in reply
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    @patch(
+        "bot.commands.generate_asset_chart_png",
+        side_effect=ValueError("Geçersiz varlık"),
+    )
+    async def test_shows_validation_error(self, mock_generate):
+        update = _make_update()
+        context = _make_context()
+        context.args = ["abc", "1a"]
+
+        await grafik_command(update, context)
+
+        mock_generate.assert_called_once()
+        reply = update.message.reply_text.call_args[0][0]
+        assert "❓" in reply
 
 # ---------------------------------------------------------------------------
 # /yardim
@@ -331,6 +393,38 @@ class TestDmCommand:
         ) as mock_send:
             await dm_command(update, context)
             mock_send.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    @patch(
+        "bot.commands.generate_asset_chart_png",
+        return_value=(b"png-bytes", "Grafik aciklamasi"),
+    )
+    async def test_dm_grafik_replies_photo_to_admin(self, mock_generate):
+        update = _make_update()
+        context = _make_context()
+        context.args = ["grafik", "btc", "1a"]
+
+        await dm_command(update, context)
+
+        mock_generate.assert_called_once_with("btc", "1a")
+        update.message.reply_photo.assert_called_once()
+        photo_arg = update.message.reply_photo.call_args.kwargs["photo"]
+        caption_arg = update.message.reply_photo.call_args.kwargs["caption"]
+        assert photo_arg is not None
+        assert caption_arg == "Grafik aciklamasi"
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    async def test_dm_grafik_usage_when_missing_args(self):
+        update = _make_update()
+        context = _make_context()
+        context.args = ["grafik", "btc"]
+
+        await dm_command(update, context)
+
+        reply = update.message.reply_text.call_args[0][0]
+        assert "Kullanım" in reply
 
 
 # ---------------------------------------------------------------------------

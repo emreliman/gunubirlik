@@ -6,6 +6,7 @@ Token ve chat_id .env dosyasından okunur.
 
 import logging
 import os
+from io import BytesIO
 
 from dotenv import load_dotenv
 from telegram import Bot
@@ -188,4 +189,44 @@ async def send_to_channel(bot: Bot, text: str) -> bool:
         raise TelegramSendError(f"Kanala mesaj gönderilemedi: {exc}") from exc
 
     logger.info("Toplam %d parça kanala gönderildi", len(chunks))
+    return True
+
+
+async def send_photo_to_channel(
+    bot: Bot, photo_bytes: bytes, caption: str
+) -> bool:
+    """Telegram kanalina gorsel gonderir.
+
+    Args:
+        bot: Telegram Bot instance'i.
+        photo_bytes: PNG/JPG byte verisi.
+        caption: Fotograf alt metni.
+
+    Returns:
+        Basariliysa True.
+
+    Raises:
+        TelegramAuthError: Token gecersizse.
+        TelegramSendError: Gonderim basarisizsa.
+    """
+    channel_id = _get_channel_id()
+    photo_stream = BytesIO(photo_bytes)
+    photo_stream.name = "grafik.png"
+
+    try:
+        await bot.send_photo(
+            chat_id=channel_id,
+            photo=photo_stream,
+            caption=caption,
+        )
+        logger.info("Kanal gorseli gonderildi (%d byte)", len(photo_bytes))
+    except InvalidToken as exc:
+        logger.error("Telegram token gecersiz: %s", exc)
+        raise TelegramAuthError("Bot token gecersiz") from exc
+    except (NetworkError, TelegramError) as exc:
+        logger.error("Kanal gorsel gonderim hatasi: %s", exc)
+        raise TelegramSendError(
+            f"Kanala gorsel gonderilemedi: {exc}"
+        ) from exc
+
     return True
