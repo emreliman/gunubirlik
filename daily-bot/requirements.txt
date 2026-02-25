@@ -1,0 +1,9 @@
+yfinance
+feedparser
+requests
+python-telegram-bot
+apscheduler
+python-dotenv
+pytest
+pytest-mock
+pytest-asyncio

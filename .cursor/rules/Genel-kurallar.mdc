@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+- TDD uygula: önce testi yaz (red), sonra implement et (green), sonra refactor et
+- Her fonksiyon tek bir iş yapmalı (Single Responsibility)
+- Tüm fonksiyonlara type hint ekle
+- Her fonksiyona docstring yaz
+- Ortam değişkenlerini doğrudan koda yazma, .env dosyasından oku
+- Magic number kullanma, sabitler için constants.py kullan
+- try/except bloklarını geniş tutma, spesifik exception yakala
+- Asla print() kullanma, logging modülünü kullan
+- Test dosyalarında gerçek API'ye çağrı yapma, mock kullan
+- requirements.txt'i güncelle
+- Kodun çalıştığını pytest ile doğrula ve sonucu göster

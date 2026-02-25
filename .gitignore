@@ -1,0 +1,8 @@
+daily-bot/.env
+daily-bot/venv/
+daily-bot/__pycache__/
+daily-bot/.pytest_cache/
+daily-bot/data/__pycache__/
+daily-bot/bot/__pycache__/
+daily-bot/scheduler/__pycache__/
+daily-bot/tests/__pycache__/
