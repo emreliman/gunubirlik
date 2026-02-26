@@ -345,4 +345,20 @@ class TestFormatTwitterMessages:
         assert isinstance(tweets, list)
         assert len(tweets) >= 3
 
+    @patch("bot.formatter._now_istanbul")
+    def test_contains_news_tweet(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
+        combined = "\n".join(tweets)
+        assert "HABERLER" in combined
+        assert "Haber 1" in combined
+        assert "https://example.com/1" in combined
+
+    @patch("bot.formatter._now_istanbul")
+    def test_no_news_tweet_when_empty(self, mock_now):
+        """Haber yoksa haberler tweet'i oluşturulmamalı."""
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, [])
+        combined = "\n".join(tweets)
+        assert "HABERLER" not in combined
 
