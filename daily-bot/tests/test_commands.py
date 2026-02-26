@@ -13,6 +13,7 @@ from bot.commands import (
     yardim_command,
     ozet_command,
     dm_command,
+    twitter_command,
     YARDIM_METNI,
 )
 
@@ -425,6 +426,72 @@ class TestDmCommand:
 
         reply = update.message.reply_text.call_args[0][0]
         assert "Kullanım" in reply
+
+
+# ---------------------------------------------------------------------------
+# /twitter
+# ---------------------------------------------------------------------------
+
+
+class TestTwitterCommand:
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    @patch(
+        "bot.commands._fetch_twitter_messages",
+        return_value=["tweet1", "tweet2", "tweet3"],
+    )
+    async def test_sends_multiple_messages_to_admin(self, mock_fetch):
+        update = _make_update()
+        context = _make_context()
+
+        await twitter_command(update, context)
+
+        # reply_text should be called once for the loading message + once per tweet
+        assert update.message.reply_text.call_count == 4
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    @patch(
+        "bot.commands._fetch_twitter_messages",
+        return_value=["tweet1", "tweet2"],
+    )
+    async def test_does_not_send_to_channel(self, mock_fetch):
+        """Twitter komutu kanala mesaj göndermemeli."""
+        update = _make_update()
+        context = _make_context()
+
+        with patch(
+            "bot.commands.send_to_channel", new_callable=AsyncMock
+        ) as mock_send:
+            await twitter_command(update, context)
+            mock_send.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    @patch(
+        "bot.commands._fetch_twitter_messages",
+        side_effect=Exception("Format error"),
+    )
+    async def test_replies_error_on_failure(self, mock_fetch):
+        update = _make_update()
+        context = _make_context()
+
+        await twitter_command(update, context)
+
+        last_reply = update.message.reply_text.call_args_list[-1][0][0]
+        assert "❌" in last_reply
+
+    @pytest.mark.asyncio
+    @patch("bot.auth.ADMIN_USER_IDS", [ADMIN_ID])
+    async def test_non_admin_cannot_use_twitter(self):
+        update = _make_update(user_id=999999)
+        context = _make_context()
+
+        await twitter_command(update, context)
+
+        update.message.reply_text.assert_called_once_with(
+            "⛔ Bu komutu kullanma yetkiniz yok."
+        )
 
 
 # ---------------------------------------------------------------------------

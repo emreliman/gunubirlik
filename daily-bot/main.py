@@ -27,6 +27,7 @@ from bot.commands import (
     grafik_command,
     yardim_command,
     dm_command,
+    twitter_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,7 @@ def main() -> None:
     app.add_handler(CommandHandler("bist", bist_command))
     app.add_handler(CommandHandler("grafik", grafik_command))
     app.add_handler(CommandHandler("dm", dm_command))
+    app.add_handler(CommandHandler("twitter", twitter_command))
     app.add_handler(CommandHandler("yardim", yardim_command))
     app.add_handler(CommandHandler("start", yardim_command))
     app.add_handler(CommandHandler("help", yardim_command))
