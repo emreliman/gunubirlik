@@ -183,16 +183,18 @@ def _fetch_twitter_messages() -> list[str]:
     from scheduler.jobs import (
         _collect_finance_data,
         _collect_crypto_data,
+        _collect_news_data,
         _DEFAULT_FINANCE_DATA,
     )
 
     finance = _collect_finance_data()
     crypto = _collect_crypto_data()
+    news = _collect_news_data()
 
     eff_finance = finance if finance is not None else _DEFAULT_FINANCE_DATA
     eff_crypto = crypto if crypto is not None else {}
 
-    return format_twitter_messages(eff_finance, eff_crypto, [])
+    return format_twitter_messages(eff_finance, eff_crypto, news)
 
 
 _DM_FETCHER_MAP: dict[str, str] = {

@@ -425,6 +425,19 @@ def format_twitter_messages(
             + " ".join(crypto_hashtags)
         )
 
+    # Tweet 5 — Haberler
+    if news_data:
+        news_lines: list[str] = []
+        for item in news_data:
+            title = item["title"]
+            link = item["link"]
+            news_lines.append(f"• {title}\n  {link}")
+        tweets.append(
+            f"📰 HABERLER | {date_str}\n\n"
+            + "\n\n".join(news_lines)
+            + "\n\n#Haber #Ekonomi #GundemTR"
+        )
+
     return tweets
 
 
