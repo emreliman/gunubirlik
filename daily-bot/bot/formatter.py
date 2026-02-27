@@ -315,7 +315,7 @@ def _format_pct_plain(change_pct: float) -> str:
         return f"📈 +{change_pct:.2f}%"
     if change_pct < 0:
         return f"📉 {change_pct:.2f}%"
-    return "➡️ 0.00%"
+    return "➖ 0.00%"
 
 
 def _change_pct_plain(current: float, previous: float) -> str:
@@ -385,7 +385,7 @@ def format_twitter_messages(
     tweets.append(
         f"📊 Günlük Piyasa Özeti — {date_str}\n\n"
         + "\n".join(summary_lines)
-        + "\n\nPiyasada neler oluyor? ⬇️\n"
+        + "\n\nPiyasada neler oluyor? 👇\n"
         "#Altın #Dolar #BIST100 #Bitcoin"
     )
 

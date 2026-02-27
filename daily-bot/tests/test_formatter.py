@@ -390,4 +390,22 @@ class TestFormatTwitterMessages:
         combined = "\n".join(tweets)
         assert "Haberler" not in combined
 
+    @patch("bot.formatter._now_istanbul")
+    def test_summary_tweet_uses_native_emoji_arrow(self, mock_now):
+        """Özet tweet'inde eski text-symbol+VS16 yerine native emoji kullanılmalı."""
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
+        assert "👇" in tweets[0]
+        assert "⬇️" not in tweets[0]
+
+    @patch("bot.formatter._now_istanbul")
+    def test_zero_change_uses_minus_emoji(self, mock_now):
+        """Sıfır değişim için ➡️ (Dingbat+VS16) yerine ➖ (native emoji) kullanılmalı."""
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        finance_flat = {**FINANCE_DATA, "bist100": {"price": 9850.0, "change_pct": 0.0}}
+        tweets = format_twitter_messages(finance_flat, CRYPTO_DATA, NEWS_DATA)
+        combined = "\n".join(tweets)
+        assert "➖" in combined
+        assert "➡️" not in combined
+
 
