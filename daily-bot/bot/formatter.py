@@ -463,7 +463,7 @@ def format_twitter_messages(
     if news_data:
         news_lines: list[str] = []
         for item in news_data:
-            news_lines.append(f"• {item['title']}")
+            news_lines.append(f"• {item['title']}\n  {item['link']}")
         tweets.append(
             "📰 Öne Çıkan Haberler:\n"
             + "\n".join(news_lines)
