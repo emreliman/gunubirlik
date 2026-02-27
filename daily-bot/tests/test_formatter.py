@@ -374,12 +374,13 @@ class TestFormatTwitterMessages:
         assert "Haber 2" in combined
 
     @patch("bot.formatter._now_istanbul")
-    def test_news_tweet_has_no_links(self, mock_now):
-        """Haberler tweetinde link olmamalı, yalnızca başlıklar yer almalı."""
+    def test_news_tweet_has_links(self, mock_now):
+        """Haberler tweetinde her haber başlığının altında link yer almalı."""
         mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
         tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
         news_tweet = [t for t in tweets if "Haberler" in t][0]
-        assert "https://" not in news_tweet
+        assert "https://example.com/1" in news_tweet
+        assert "https://example.com/2" in news_tweet
 
     @patch("bot.formatter._now_istanbul")
     def test_no_news_tweet_when_empty(self, mock_now):
