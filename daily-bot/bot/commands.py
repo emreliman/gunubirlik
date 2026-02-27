@@ -19,6 +19,7 @@ from bot.formatter import (
     format_bist_only,
     format_crypto_only,
     format_news_only,
+    format_twitter_messages,
 )
 from bot.telegram_bot import send_to_channel
 from bot.telegram_bot import send_photo_to_channel
@@ -63,6 +64,8 @@ YARDIM_METNI = (
     "/dm ozet — Tam günlük özet\n\n"
     "/dm grafik btc 1h — BTC 1 haftalık grafik\n"
     "/dm grafik altin 1a — Altın 1 aylık grafik\n\n"
+    "🐦 Twitter paylaşımı:\n"
+    "/twitter — Günlük özeti Twitter'a uygun, ayrı mesajlar halinde gönderir\n\n"
     "/yardim — Bu mesaj"
 )
 
@@ -169,6 +172,29 @@ def _fetch_summary_message() -> str:
     eff_crypto = crypto if crypto is not None else {}
 
     return format_message(eff_finance, eff_crypto, news)
+
+
+def _fetch_twitter_messages() -> list[str]:
+    """Twitter'a uygun tweet listesini oluşturur (göndermez).
+
+    Returns:
+        Twitter'a uygun tweet metinlerinin listesi.
+    """
+    from scheduler.jobs import (
+        _collect_finance_data,
+        _collect_crypto_data,
+        _collect_news_data,
+        _DEFAULT_FINANCE_DATA,
+    )
+
+    finance = _collect_finance_data()
+    crypto = _collect_crypto_data()
+    news = _collect_news_data()
+
+    eff_finance = finance if finance is not None else _DEFAULT_FINANCE_DATA
+    eff_crypto = crypto if crypto is not None else {}
+
+    return format_twitter_messages(eff_finance, eff_crypto, news)
 
 
 _DM_FETCHER_MAP: dict[str, str] = {
@@ -372,6 +398,30 @@ async def dm_command(
         await update.message.reply_text(message, parse_mode="MarkdownV2")
     except Exception as exc:
         logger.error("DM komutu hatası (%s): %s", sub, exc)
+        await update.message.reply_text(f"❌ Hata oluştu: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Twitter command handler
+# ---------------------------------------------------------------------------
+
+
+@admin_only
+async def twitter_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Günlük özeti Twitter'a uygun formatta, ayrı mesajlar olarak admin'e gönderir.
+
+    Her tweet ayrı bir mesaj olarak gönderilir; kullanıcı doğrudan kopyalayıp
+    Twitter'da paylaşabilir. Mesajlar kanala gönderilmez.
+    """
+    await update.message.reply_text("🐦 Twitter içeriği hazırlanıyor...")
+    try:
+        tweets = _fetch_twitter_messages()
+        for tweet in tweets:
+            await update.message.reply_text(tweet)
+    except Exception as exc:
+        logger.error("Twitter komutu hatası: %s", exc)
         await update.message.reply_text(f"❌ Hata oluştu: {exc}")
 
 
