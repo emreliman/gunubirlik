@@ -278,12 +278,23 @@ class TestFormatTwitterMessages:
         assert len(tweets) >= 3
 
     @patch("bot.formatter._now_istanbul")
+    def test_first_tweet_is_summary(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
+        assert "Günlük Piyasa Özeti" in tweets[0]
+        assert "25 Şubat 2026" in tweets[0]
+        assert "Altın" in tweets[0]
+        assert "USD" in tweets[0]
+        assert "BIST100" in tweets[0]
+        assert "BTC" in tweets[0]
+
+    @patch("bot.formatter._now_istanbul")
     def test_contains_doviz_tweet(self, mock_now):
         mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
         tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
         combined = "\n".join(tweets)
-        assert "USD" in combined
-        assert "EUR" in combined
+        assert "USD/TRY" in combined
+        assert "EUR/TRY" in combined
 
     @patch("bot.formatter._now_istanbul")
     def test_contains_altin_tweet(self, mock_now):
@@ -298,7 +309,15 @@ class TestFormatTwitterMessages:
         mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
         tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
         combined = "\n".join(tweets)
-        assert "BIST" in combined
+        assert "BIST100" in combined
+
+    @patch("bot.formatter._now_istanbul")
+    def test_borsa_tweet_has_us_section(self, mock_now):
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
+        combined = "\n".join(tweets)
+        assert "ABD BORSA" in combined
+        assert "S&P 500" in combined
 
     @patch("bot.formatter._now_istanbul")
     def test_contains_kripto_tweet(self, mock_now):
@@ -324,11 +343,11 @@ class TestFormatTwitterMessages:
             assert "\\" not in tweet
 
     @patch("bot.formatter._now_istanbul")
-    def test_contains_date(self, mock_now):
+    def test_contains_turkish_date(self, mock_now):
         mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
         tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
         combined = "\n".join(tweets)
-        assert "25.02.2026" in combined
+        assert "25 Şubat 2026" in combined
 
     @patch("bot.formatter._now_istanbul")
     def test_handles_empty_crypto(self, mock_now):
@@ -350,9 +369,17 @@ class TestFormatTwitterMessages:
         mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
         tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
         combined = "\n".join(tweets)
-        assert "HABERLER" in combined
+        assert "Öne Çıkan Haberler" in combined
         assert "Haber 1" in combined
-        assert "https://example.com/1" in combined
+        assert "Haber 2" in combined
+
+    @patch("bot.formatter._now_istanbul")
+    def test_news_tweet_has_no_links(self, mock_now):
+        """Haberler tweetinde link olmamalı, yalnızca başlıklar yer almalı."""
+        mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
+        tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, NEWS_DATA)
+        news_tweet = [t for t in tweets if "Haberler" in t][0]
+        assert "https://" not in news_tweet
 
     @patch("bot.formatter._now_istanbul")
     def test_no_news_tweet_when_empty(self, mock_now):
@@ -360,5 +387,6 @@ class TestFormatTwitterMessages:
         mock_now.return_value = datetime(2026, 2, 25, 9, 0, 0)
         tweets = format_twitter_messages(FINANCE_DATA, CRYPTO_DATA, [])
         combined = "\n".join(tweets)
-        assert "HABERLER" not in combined
+        assert "Haberler" not in combined
+
 
