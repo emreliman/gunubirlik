@@ -334,6 +334,12 @@ def _change_pct_plain(current: float, previous: float) -> str:
     return _format_pct_plain(change_pct)
 
 
+_TR_MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+]
+
+
 def format_twitter_messages(
     finance_data: dict, crypto_data: dict, news_data: list[dict]
 ) -> list[str]:
@@ -351,63 +357,91 @@ def format_twitter_messages(
         Twitter'a uygun tweet metinlerinin listesi.
     """
     now = _now_istanbul()
-    date_str = now.strftime("%d.%m.%Y")
+    date_str = f"{now.day} {_TR_MONTHS[now.month - 1]} {now.year}"
     tweets: list[str] = []
 
-    # Tweet 1 — Döviz
-    usd_line = (
-        f"💵 USD/TRY: {_format_plain_number(finance_data['usd'])} "
+    # Tweet 1 — Özet (summary)
+    gold_summary = (
+        f"💛 Altın: {_format_plain_number(finance_data['gold_try'])}₺ "
+        f"{_change_pct_plain(finance_data['gold_try'], finance_data['gold_prev'])}"
+    )
+    usd_summary = (
+        f"💵 USD: {_format_plain_number(finance_data['usd'])} "
         f"{_change_pct_plain(finance_data['usd'], finance_data['usd_prev'])}"
     )
-    eur_line = (
-        f"💶 EUR/TRY: {_format_plain_number(finance_data['eur'])} "
-        f"{_change_pct_plain(finance_data['eur'], finance_data['eur_prev'])}"
+    bist = finance_data["bist100"]
+    bist_summary = (
+        f"📈 BIST100: {_format_plain_number(bist['price'], decimals=0)} "
+        f"{_format_pct_plain(bist['change_pct'])}"
     )
+    summary_lines = [gold_summary, usd_summary, bist_summary]
+    btc_data = crypto_data.get("bitcoin")
+    if btc_data:
+        btc_summary = (
+            f"₿ BTC: ${_format_plain_number(btc_data['price_usd'], decimals=0)} "
+            f"{_format_pct_plain(btc_data['change_24h'])}"
+        )
+        summary_lines.append(btc_summary)
     tweets.append(
-        f"💵 DÖVİZ | {date_str}\n\n"
-        f"{usd_line}\n{eur_line}\n\n"
-        f"#Dolar #Euro #DovizKuru #USDTRY #Ekonomi"
+        f"📊 Günlük Piyasa Özeti — {date_str}\n\n"
+        + "\n".join(summary_lines)
+        + "\n\nPiyasada neler oluyor? ⬇️\n"
+        "#Altın #Dolar #BIST100 #Bitcoin"
     )
 
     # Tweet 2 — Altın & Gümüş
     gold_line = (
-        f"🟡 Altın (gram): {_format_plain_number(finance_data['gold_try'])} ₺ "
+        f"• Altın: {_format_plain_number(finance_data['gold_try'])} ₺ "
         f"{_change_pct_plain(finance_data['gold_try'], finance_data['gold_prev'])}"
     )
     silver_line = (
-        f"⚪ Gümüş (gram): {_format_plain_number(finance_data['silver_try'])} ₺ "
+        f"• Gümüş: {_format_plain_number(finance_data['silver_try'])} ₺ "
         f"{_change_pct_plain(finance_data['silver_try'], finance_data['silver_prev'])}"
     )
     tweets.append(
-        f"💛 ALTIN & GÜMÜŞ | {date_str}\n\n"
-        f"{gold_line}\n{silver_line}\n\n"
-        f"#Altin #Gumus #AltinFiyati #Ekonomi"
+        f"💛 ALTIN & GÜMÜŞ\n"
+        f"{gold_line}\n{silver_line}\n"
+        f"#Gümüş #OnsAltın"
     )
 
-    # Tweet 3 — Borsa
-    bist = finance_data["bist100"]
-    bist_line = (
-        f"📊 BIST 100: {_format_plain_number(bist['price'], decimals=0)} "
-        f"{_format_pct_plain(bist['change_pct'])}"
+    # Tweet 3 — Döviz
+    usd_line = (
+        f"• USD/TRY: {_format_plain_number(finance_data['usd'])} "
+        f"{_change_pct_plain(finance_data['usd'], finance_data['usd_prev'])}"
     )
-    borsa_lines = [bist_line]
+    eur_line = (
+        f"• EUR/TRY: {_format_plain_number(finance_data['eur'])} "
+        f"{_change_pct_plain(finance_data['eur'], finance_data['eur_prev'])}"
+    )
+    tweets.append(
+        f"💵 DÖVİZ\n"
+        f"{usd_line}\n{eur_line}\n"
+        f"#USDTRY #EURTRY #Döviz"
+    )
+
+    # Tweet 4 — Borsa
+    bist_line = f"• BIST100: {_format_plain_number(bist['price'], decimals=0)} {_format_pct_plain(bist['change_pct'])}"
     us = finance_data.get("us_markets", {})
     us_labels = {"sp500": "S&P 500", "dowjones": "Dow Jones", "nasdaq": "Nasdaq"}
-    for key, data in us.items():
-        label = us_labels.get(key, key.upper())
-        price = _format_plain_number(data["price"], decimals=0)
-        change = _format_pct_plain(data["change_pct"])
-        borsa_lines.append(f"🇺🇸 {label}: {price} {change}")
+    borsa_body = bist_line
+    if us:
+        us_lines = []
+        for key, data in us.items():
+            label = us_labels.get(key, key.upper())
+            price = _format_plain_number(data["price"], decimals=0)
+            change = _format_pct_plain(data["change_pct"])
+            us_lines.append(f"• {label}: {price} {change}")
+        borsa_body += "\n\n🇺🇸 ABD BORSA\n" + "\n".join(us_lines)
     tweets.append(
-        f"📈 BORSA | {date_str}\n\n"
-        + "\n".join(borsa_lines)
-        + "\n\n#BIST100 #Borsa #Hisse #SPX #Nasdaq #Ekonomi"
+        f"📈 BORSA\n"
+        + borsa_body
+        + "\n#Borsa #SP500 #Nasdaq"
     )
 
-    # Tweet 4 — Kripto
+    # Tweet 5 — Kripto
     crypto_labels = {"bitcoin": "BTC", "ethereum": "ETH"}
     crypto_lines: list[str] = []
-    crypto_hashtags: list[str] = ["#Kripto", "#Blockchain"]
+    crypto_hashtags: list[str] = ["#Kripto"]
     for coin_id, data in crypto_data.items():
         label = crypto_labels.get(coin_id, coin_id.upper())
         price_usd = _format_plain_number(data["price_usd"], decimals=0)
@@ -419,23 +453,21 @@ def format_twitter_messages(
         crypto_hashtags.append(f"#{label}")
     if crypto_lines:
         tweets.append(
-            f"₿ KRİPTO | {date_str}\n\n"
+            f"₿ KRİPTO\n"
             + "\n".join(crypto_lines)
-            + "\n\n"
+            + "\n"
             + " ".join(crypto_hashtags)
         )
 
-    # Tweet 5 — Haberler
+    # Tweet 6 — Haberler
     if news_data:
         news_lines: list[str] = []
         for item in news_data:
-            title = item["title"]
-            link = item["link"]
-            news_lines.append(f"• {title}\n  {link}")
+            news_lines.append(f"• {item['title']}")
         tweets.append(
-            f"📰 HABERLER | {date_str}\n\n"
-            + "\n\n".join(news_lines)
-            + "\n\n#Haber #Ekonomi #GundemTR"
+            "📰 Öne Çıkan Haberler:\n"
+            + "\n".join(news_lines)
+            + "\n#Ekonomi #Finans"
         )
 
     return tweets
